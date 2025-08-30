@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SM64 Mobile Speedrun Leaderboard</title>
+    <style>
+        :root { --bg-color: #121212; --text-color: #e0e0e0; --primary-color: #ffffff; --secondary-color: #b3b3b3; --border-color: #333333; --pending-color: #f39c12; --accent-color: #6200ee; --rejected-color: #e74c3c; }
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 1rem; }
+        header { text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+        h1, h2, h3 { color: var(--primary-color); }
+        h4 { color: var(--secondary-color); margin-top: 1.5rem; }
+        nav { margin-top: 1rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; }
+        nav a, .action-button { color: var(--secondary-color); text-decoration: none; font-weight: bold; cursor: pointer; }
+        nav a:hover, .action-button:hover { color: var(--primary-color); }
+        main { max-width: 900px; margin: 0 auto; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+        .card { background-color: #1e1e1e; border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; text-align: center; cursor: pointer; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-5px); }
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .runner-cell { display: flex; align-items: center; gap: 10px; }
+        .runner-cell span { font-size: 1.5rem; }
+        .mod-actions { display: flex; gap: 5px; align-items: center; white-space: nowrap; }
+        .mod-actions button { background: none; border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 1rem; line-height: 1; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+        .modal-content { background-color: #2a2a2a; padding: 2rem; border-radius: 8px; width: 90%; max-width: 600px; position: relative; max-height: 90vh; overflow-y: auto; }
+        .modal-content ul { list-style-position: inside; padding-left: 0; }
+        .modal-content li { margin-bottom: 0.5rem; }
+        .close-btn { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; }
+        form label { display: block; margin-top: 1rem; }
+        form input, form select, form button { width: 100%; padding: 0.75rem; margin-top: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background-color: #333; color: var(--text-color); box-sizing: border-box; }
+        form button { background-color: var(--accent-color); font-weight: bold; cursor: pointer; }
+        form button:disabled { background-color: #555; cursor: not-allowed; }
+        .loader { text-align: center; font-size: 1.2em; padding: 2rem; }
+        .breadcrumb { margin-bottom: 1rem; font-size: 1.1em; }
+        .breadcrumb a { color: var(--secondary-color); }
+        .breadcrumb span { color: var(--primary-color); }
+        .error-message { color: var(--rejected-color); margin-top: 1rem; display: none; }
+
+        @media (max-width: 600px) {
+            body { padding: 0.5rem; }
+            h1 { font-size: 1.5rem; } h2 { font-size: 1.3rem; }
+            .card h3 { font-size: 1.1rem; }
+            td, th { padding: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>SM64 Mobile Speedrun Leaderboard</h1>
+        <nav>
+            <a href="#home">Categories</a>
+            <a href="#worldrecords">World Records</a>
+            <a class="action-button" onclick="openRulesModal()">Rules</a>
+            <a href="https://discord.gg/28sytjXMxK" target="_blank" rel="noopener noreferrer">Discord</a>
+            <span id="mod-queue-link-container"></span>
+        </nav>
+        <div id="user-actions" style="margin-top: 1rem;">
+            <a class="action-button" onclick="openSubmissionModal()">Submit Run</a>
+            <span style="color: var(--border-color); margin: 0 10px;">|</span>
+            <span id="moderator-auth-section"></span>
+        </div>
+    </header>
+    <main id="app-container"></main>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <script>
+        // ==============================================================================
+        // --- 1. CONFIG & APP STATE ---
+        // ==============================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAGPCTj0jAVysACSPh87Nuv3SJFvfKRYz8",
+            authDomain: "sm64-mobile-leaderboard-96267.firebaseapp.com",
+            projectId: "sm64-mobile-leaderboard-96267",
+            storageBucket: "sm64-mobile-leaderboard-96267.appspot.com",
+            messagingSenderId: "353861087457",
+            appId: "1:353861087457:web:73911b2bdadf13d005c7a0"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const appContainer = document.getElementById('app-container');
+        const appState = {
+            isModerator: false,
+            coursesCache: [],
+            starsCache: {},
+            currentListener: null,
+        };
+
+        const countries = { "AF": "Afghanistan", "AX": "Åland Islands", "AL": "Albania", "DZ": "Algeria", "AS": "American Samoa", "AD": "Andorra", "AO": "Angola", "AI": "Anguilla", "AQ": "Antarctica", "AG": "Antigua & Barbuda", "AR": "Argentina", "AM": "Armenia", "AW": "Aruba", "AU": "Australia", "AT": "Austria", "AZ": "Azerbaijan", "BS": "Bahamas", "BH": "Bahrain", "BD": "Bangladesh", "BB": "Barbados", "BY": "Belarus", "BE": "Belgium", "BZ": "Belize", "BJ": "Benin", "BM": "Bermuda", "BT": "Bhutan", "BO": "Bolivia", "BA": "Bosnia & Herzegovina", "BW": "Botswana", "BV": "Bouvet Island", "BR": "Brazil", "IO": "British Indian Ocean Territory", "VG": "British Virgin Islands", "BN": "Brunei", "BG": "Bulgaria", "BF": "Burkina Faso", "BI": "Burundi", "KH": "Cambodia", "CM": "Cameroon", "CA": "Canada", "CV": "Cape Verde", "BQ": "Caribbean Netherlands", "KY": "Cayman Islands", "CF": "Central African Republic", "TD": "Chad", "CL": "Chile", "CN": "China", "CX": "Christmas Island", "CC": "Cocos (Keeling) Islands", "CO": "Colombia", "KM": "Comoros", "CG": "Congo - Brazzaville", "CD": "Congo - Kinshasa", "CK": "Cook Islands", "CR": "Costa Rica", "CI": "Côte d’Ivoire", "HR": "Croatia", "CU": "Cuba", "CW": "Curaçao", "CY": "Cyprus", "CZ": "Czechia", "DK": "Denmark", "DJ": "Djibouti", "DM": "Dominica", "DO": "Dominican Republic", "EC": "Ecuador", "EG": "Egypt", "SV": "El Salvador", "GQ": "Equatorial Guinea", "ER": "Eritrea", "EE": "Estonia", "SZ": "Eswatini", "ET": "Ethiopia", "FK": "Falkland Islands", "FO": "Faroe Islands", "FJ": "Fiji", "FI": "Finland", "FR": "France", "GF": "French Guiana", "PF": "French Polynesia", "TF": "French Southern Territories", "GA": "Gabon", "GM": "Gambia", "GE": "Georgia", "DE": "Germany", "GH": "Ghana", "GI": "Gibraltar", "GR": "Greece", "GL": "Greenland", "GD": "Grenada", "GP": "Guadeloupe", "GU": "Guam", "GT": "Guatemala", "GG": "Guernsey", "GN": "Guinea", "GW": "Guinea-Bissau", "GY": "Guyana", "HT": "Haiti", "HM": "Heard & McDonald Islands", "HN": "Honduras", "HK": "Hong Kong SAR China", "HU": "Hungary", "IS": "Iceland", "IN": "India", "ID": "Indonesia", "IR": "Iran", "IQ": "Iraq", "IE": "Ireland", "IM": "Isle of Man", "IL": "Israel", "IT": "Italy", "JM": "Jamaica", "JP": "Japan", "JE": "Jersey", "JO": "Jordan", "KZ": "Kazakhstan", "KE": "Kenya", "KI": "Kiribati", "KW": "Kuwait", "KG": "Kyrgyzstan", "LA": "Laos", "LV": "Latvia", "LB": "Lebanon", "LS": "Lesotho", "LR": "Liberia", "LY": "Libya", "LI": "Liechtenstein", "LT": "Lithuania", "LU": "Luxembourg", "MO": "Macao SAR China", "MG": "Madagascar", "MW": "Malawi", "MY": "Malaysia", "MV": "Maldives", "ML": "Mali", "MT": "Malta", "MH": "Marshall Islands", "MQ": "Martinique", "MR": "Mauritania", "MU": "Mauritius", "YT": "Mayotte", "MX": "Mexico", "FM": "Micronesia", "MD": "Moldova", "MC": "Monaco", "MN": "Mongolia", "ME": "Montenegro", "MS": "Montserrat", "MA": "Morocco", "MZ": "Mozambique", "MM": "Myanmar (Burma)", "NA": "Namibia", "NR": "Nauru", "NP": "Nepal", "NL": "Netherlands", "NC": "New Caledonia", "NZ": "New Zealand", "NI": "Nicaragua", "NE": "Niger", "NG": "Nigeria", "NU": "Niue", "NF": "Norfolk Island", "KP": "North Korea", "MK": "North Macedonia", "MP": "Northern Mariana Islands", "NO": "Norway", "OM": "Oman", "PK": "Pakistan", "PW": "Palau", "PS": "Palestinian Territories", "PA": "Panama", "PG": "Papua New Guinea", "PY": "Paraguay", "PE": "Peru", "PH": "Philippines", "PN": "Pitcairn Islands", "PL": "Poland", "PT": "Portugal", "PR": "Puerto Rico", "QA": "Qatar", "RE": "Réunion", "RO": "Romania", "RU": "Russia", "RW": "Rwanda", "WS": "Samoa", "SM": "San Marino", "ST": "São Tomé & Príncipe", "SA": "Saudi Arabia", "SN": "Senegal", "RS": "Serbia", "SC": "Seychelles", "SL": "Sierra Leone", "SG": "Singapore", "SX": "Sint Maarten", "SK": "Slovakia", "SI": "Slovenia", "SB": "Solomon Islands", "SO": "Somalia", "ZA": "South Africa", "GS": "South Georgia & South Sandwich Islands", "KR": "South Korea", "SS": "South Sudan", "ES": "Spain", "LK": "Sri Lanka", "BL": "St. Barthélemy", "SH": "St. Helena", "KN": "St. Kitts & Nevis", "LC": "St. Lucia", "MF": "St. Martin", "PM": "St. Pierre & Miquelon", "VC": "St. Vincent & Grenadines", "SD": "Sudan", "SR": "Suriname", "SJ": "Svalbard & Jan Mayen", "SE": "Sweden", "CH": "Switzerland", "SY": "Syria", "TW": "Taiwan", "TJ": "Tajikistan", "TZ": "Tanzania", "TH": "Thailand", "TL": "Timor-Leste", "TG": "Togo", "TK": "Tokelau", "TO": "Tonga", "TT": "Trinidad & Tobago", "TN": "Tunisia", "TR": "Turkey", "TM": "Turkmenistan", "TC": "Turks & Caicos Islands", "TV": "Tuvalu", "UM": "U.S. Outlying Islands", "VI": "U.S. Virgin Islands", "UG": "Uganda", "UA": "Ukraine", "AE": "United Arab Emirates", "GB": "United Kingdom", "US": "United States", "UY": "Uruguay", "UZ": "Uzbekistan", "VU": "Vanuatu", "VA": "Vatican City", "VE": "Venezuela", "VN": "Vietnam", "WF": "Wallis & Futuna", "EH": "Western Sahara", "YE": "Yemen", "ZM": "Zambia", "ZW": "Zimbabwe" };
+        
+        // ==============================================================================
+        // --- 2. HELPERS & ROUTER ---
+        // ==============================================================================
+        function getFlagEmoji(countryCode) {
+            if (!countryCode || countryCode.length !== 2) return '';
+            const codePoints = countryCode.toUpperCase().split('').map(char => 127397 + char.charCodeAt());
+            return String.fromCodePoint(...codePoints);
+        }
+
+        function router() {
+            if (appState.currentListener) appState.currentListener();
+            appState.currentListener = null;
+
+            const hash = window.location.hash || '#home';
+            if (hash === '#home') showCoursesPage();
+            else if (hash.startsWith('#course/')) showStarsPage(hash.substring('#course/'.length));
+            else if (hash.startsWith('#star/')) {
+                const [courseId, starId] = hash.substring('#star/'.length).split('/');
+                showLeaderboard(courseId, starId);
+            } 
+            else if (hash === '#modqueue') showModQueuePage();
+            else if (hash === '#worldrecords') showWorldRecordsPage();
+            else window.location.hash = '#home';
+        }
+        
+        // ==============================================================================
+        // --- 3. RENDER FUNCTIONS ---
+        // ==============================================================================
+        function renderLoader(message) { appContainer.innerHTML = `<div class="loader">${message}</div>`; }
+        function renderError(message) { appContainer.innerHTML = `<h2>${message}</h2>`; }
+
+        async function loadCourses() {
+            if (appState.coursesCache.length > 0) return appState.coursesCache;
+            try {
+                const snapshot = await db.collection('courses').orderBy('order').get();
+                appState.coursesCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                return appState.coursesCache;
+            } catch (error) { console.error(error); renderError("Error connecting to the database."); return []; }
+        }
+
+        async function loadStarsForCourse(courseId) {
+            if (appState.starsCache[courseId]) return appState.starsCache[courseId];
+             try {
+                const snapshot = await db.collection('courses').doc(courseId).collection('stars').orderBy('order').get();
+                const stars = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                appState.starsCache[courseId] = stars;
+                return stars;
+            } catch (error) { console.error(error); renderError("Could not load stars for this course."); return []; }
+        }
+        
+        async function showCoursesPage() {
+            renderLoader("Loading Categories...");
+            const courses = await loadCourses();
+            if (courses.length === 0) {
+                renderError('No categories found. Open the F12 console and run `seedDatabase()` to populate the data.');
+                return;
+            }
+            appContainer.innerHTML = `
+                <h2>Select a Category</h2>
+                <div class="grid-container">
+                    ${courses.map(course => `
+                        <div class="card" onclick="window.location.hash='#course/${course.id}'">
+                            <h3>${course.name}</h3>
+                        </div>
+                    `).join('')}
+                </div>`;
+        }
+        
+        async function showStarsPage(courseId) {
+            renderLoader("Loading...");
+            await loadCourses();
+            const course = appState.coursesCache.find(c => c.id === courseId);
+            if (!course) { window.location.hash = '#home'; return; }
+
+            const stars = await loadStarsForCourse(courseId);
+            
+            if (course.isFullgame && stars.length === 1) {
+                window.location.hash = `#star/${courseId}/${stars[0].id}`;
+                return;
+            }
+
+            appContainer.innerHTML = `
+                <div class="breadcrumb"><a href="#home">Categories</a> / <span>${course.name}</span></div>
+                <h2>Select a Star</h2>
+                <div class="grid-container">
+                    ${stars.map(star => `
+                        <div class="card" onclick="window.location.hash='#star/${course.id}/${star.id}'">
+                            <h3>${star.name}</h3>
+                        </div>
+                    `).join('')}
+                </div>`;
+        }
+
+        async function showLeaderboard(courseId, starId) {
+            renderLoader("Loading Leaderboard...");
+            await loadCourses();
+            await loadStarsForCourse(courseId);
+            const course = appState.coursesCache.find(c => c.id === courseId);
+            const star = appState.starsCache[courseId]?.find(s => s.id === starId);
+
+            if (!course || !star) { window.location.hash = '#home'; return; }
+            
+            const title = course.isFullgame ? course.name : star.name;
+
+            const runsCollection = db.collection('courses').doc(courseId).collection('stars').doc(starId).collection('runs')
+                .where('status', '==', 'verified').orderBy('time_numeric');
+
+            appState.currentListener = runsCollection.onSnapshot(snapshot => {
+                const runs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                appContainer.innerHTML = `
+                    <div class="breadcrumb">
+                        <a href="#home">Categories</a> / ${course.isFullgame ? `<span>${course.name}</span>` : `<a href="#course/${course.id}">${course.name}</a> / <span>${star.name}</span>`}
+                    </div>
+                    <h2>${title} Leaderboard</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>#</th><th>Runner</th><th>Time</th><th>Date</th><th>Video</th>${appState.isModerator ? '<th>Actions</th>' : ''}</tr></thead>
+                            <tbody>
+                            ${runs.map((run, index) => {
+                                const runDate = run.date ? new Date(run.date.replace(/-/g, '\/')).toLocaleDateString() : 'N/A';
+                                return `<tr>
+                                    <td>${index + 1}</td>
+                                    <td><div class="runner-cell"><span>${getFlagEmoji(run.countryCode)}</span> ${run.runner}</div></td>
+                                    <td>${run.time_str}</td>
+                                    <td>${runDate}</td>
+                                    <td><a href="${run.videoLink}" target="_blank" rel="noopener noreferrer">Link</a></td>
+                                    ${appState.isModerator ? `<td><div class="mod-actions">
+                                        <button onclick="openEditModal('${courseId}', '${starId}', '${run.id}')" title="Edit">✏️</button>
+                                        <button onclick="deleteRun('${courseId}', '${starId}', '${run.id}')" title="Delete">🗑️</button>
+                                    </div></td>` : ''}
+                                </tr>`;
+                            }).join('') || '<tr><td colspan="6">No verified runs have been submitted yet.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>`;
+            }, error => { console.error("Error fetching leaderboard:", error); renderError("Failed to load leaderboard."); });
+        }
+        
+        function parseTimeToNumeric(timeStr) {
+            const time = String(timeStr).trim();
+            const parts = time.split(':').map(part => parseFloat(part));
+            let seconds = 0;
+            if (parts.length === 3) { // H:M:S
+                seconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+            } else if (parts.length === 2) { // M:S
+                seconds = (parts[0] * 60) + parts[1];
+            } else { // S
+                seconds = parseFloat(time);
+            }
+            return isNaN(seconds) ? Infinity : seconds;
+        }
+        
+        // ==============================================================================
+        // --- 5. SEED FUNCTION (FOR DEV CONSOLE USE) ---
+        // ==============================================================================
+        async function seedDatabase() {
+            console.log("WARNING: This will POPULATE the 'courses' collection. It is critical that you MANUALLY DELETE the collection in the Firebase Console first for a clean seed.");
+            if (!confirm("This will overwrite existing data. Are you sure you want to continue?")) return;
+            
+            const createRun = (runner, countryCode, time, date, video) => ({
+                runner, countryCode, time_str: time, time_numeric: parseTimeToNumeric(time), date, videoLink: video, 
+                runner_normalized: runner.toLowerCase().trim(), status: 'verified'
+            });
+
+            const runs_0_star = [
+                createRun("Jugo de naranja", "VE", "7:16", "2025-07-30", "https://youtu.be/zDdfwgc8t8k?si=Le-NwfGysIQyt1vB"),
+                createRun("WRandY", "CN", "10:15", "2024-09-28", "https://b23.tv/XDeuXLw"),
+                createRun("Littlezombie", "CN", "14:31", "2024-04-12", "https://youtu.be/zCgTy2QcsPE?si=EmalQqZh68fOX20t"),
+            ];
+            const runs_1_star = [
+                createRun("Jugo de naranja", "VE", "7:43", "2025-06-05", "https://youtu.be/s3-tZkqCXv8?si=bdEoIRBKXuPEPjbe"),
+                createRun("AmiDoesRuns", "CA", "8:17", "2024-08-28", "https://youtu.be/nqf5jH5IWVM?si=Z-Ud_o8JnCPoQGRe"),
+                createRun("Nisi Sm64", "BR", "8:27", "2024-08-27", "https://youtu.be/uaQ9bdKOI6E?si=J1nHvTxSzU_m_tWE"),
+                createRun("Major", "US", "9:01", "2025-03-13", "https://youtu.be/GC06TvsrK1o?si=FKs4ytEyrigzX4WY"),
+                createRun("Littlezombie", "CN", "10:27", "2024-04-05", "https://youtu.be/NDV64IY1Mx4?si=QhatiiG2A5--YZ_l"),
+                createRun("three yuan", "CN", "12:48", "2025-02-02", "https://b23.tv/g3MXmHB"),
+                createRun("Agu", "AR", "13:02", "2025-03-14", "https://youtu.be/R9wDj90VI40?si=z62FJGce3zX0Sbo2"),
+            ];
+            const runs_16_nolblj = [
+                createRun("AmiDoes Runs", "CA", "15:56", "2025-06-05", "https://youtu.be/nEfVP4sdTZ8?si=Fq6BkO_X0MLqvOPf"),
+                createRun("Major", "US", "16:21", "2025-06-12", "https://youtu.be/-I-3JvSGqAo?si=biZd3zO--7L8XkBy"),
+                createRun("Nisi_Sm64", "BR", "16:40", "2024-08-13", "https://youtu.be/UJHeDVGfS6M?si=Vtx5njPEAJQP1dTJ"),
+                createRun("Positive_Pan", "US", "16:59", "2025-04-19", "https://youtu.be/Qgl8iEg9z7c?si=gaVIBfvoxj2_NLEP"),
+                createRun("stEv3900", "CL", "17:03", "2024-12-12", "https://youtu.be/4HsUPhzMj64?si=CHSQ83ixWjG9isKZ"),
+                createRun("Chillo", "MX", "17:33", "2025-07-13", "https://youtu.be/W9k1_BhNDGM?si=3szQGilzSSMj3Ouj"),
+                createRun("Golden King", "CN", "17:54", "2025-08-12", "https://b23.tv/8y3DQJP"),
+                createRun("WRandY", "BR", "18:07", "2025-07-16", "https://b23.tv/LA02MwR"),
+                createRun("SpeedVortex", "US", "18:23", "2025-01-02", "https://youtu.be/iJXFBFKgrjE?si=36flkxZd9jt_Xi1d"),
+                createRun("yusosekc", "JP", "18:39", "2020-01-02", "https://www.twitch.tv/videos/529580971"),
+            ];
+            const runs_16_lblj = [
+                createRun("Major", "US", "16:52", "2025-03-17", "https://youtu.be/q8sN_j7Az_M?si=g1-N1JiuFSFPvjVR"),
+                createRun("AmiDoesRuns", "CA", "17:31", "2024-07-14", "https://youtu.be/L4JYeglySJ0?si=E_pb5hhPc155e2xm"),
+                createRun("Positive_Pan", "US", "18:05", "2024-07-05", "https://youtu.be/8FhL-QL52-E?si=SHoZPdEiF_9mdfi0"),
+                createRun("three yuan", "CN", "18:44", "2025-01-29", "https://b23.tv/jNjQdQt"),
+            ];
+            const runs_70_star = [
+                createRun("AmiDoesRuns", "CA", "50:07", "2025-07-28", "https://www.twitch.tv/videos/2527370259"),
+                createRun("Major", "US", "51:50", "2025-07-10", "https://youtu.be/yjsSmklbmYQ?si=kfaBXyvB6oSqxs7q"),
+                createRun("stEv3900", "CL", "56:11", "2024-03-20", "https://youtu.be/Ma_uaL5iHTE?si=uov6wqLLWFXw42Sz"),
+                createRun("Nisi sm64", "BR", "57:35", "2022-05-20", "https://youtu.be/ev8eMiK9D_Q?si=1erv7uk3ieM3wMYv"),
+                createRun("Chillo", "MX", "58:42", "2025-07-25", "https://www.youtube.com/watch?v=_AAOJT-HSrA"),
+                createRun("Golden King", "CN", "59:23", "2025-07-29", "https://b23.tv/lHCVfWW"),
+                createRun("Speedvortex", "US", "59:35", "2024-09-21", "https://youtu.be/E81CAVI28hk?si=g2FcHBLPjCw-Nh4_"),
+                createRun("Positive_Pan", "US", "59:59", "2025-01-10", "https://youtu.be/00BzFavjWjA?si=D2RE6ZN6N-7fJrKr"),
+            ];
+            const runs_120_star = [
+                createRun("AmiDoesRuns", "CA", "1:56:17", "2025-06-01", "https://youtu.be/zVuYX8Sd3uY?si=tkjA7ZJA4Q284odp"),
+                createRun("SpeedVortex", "BR", "2:22:51", "2024-04-19", "https://youtu.be/5UxnEsogfks?si=Ly6lXe0LbH7oaToR"),
+            ];
+
+            const fullGameStars = (runs) => ([{ id: "leaderboard", name: "Leaderboard", order: 1, runs }]);
+            const mainCourses = [ { id: "bob", name: "Bob-omb Battlefield", order: 1, stars: [ { id: "s1", name: "Big Bob-Omb on the Summit", order: 1 } ] }, ];
+            const fullGameCategories = [
+                { id: "0_star", name: "0 Star", order: 2, isFullgame: true, stars: fullGameStars(runs_0_star) },
+                { id: "1_star", name: "1 Star", order: 3, isFullgame: true, stars: fullGameStars(runs_1_star) },
+                { id: "16_star_nolblj", name: "16 Star (No LBLJ)", order: 4, isFullgame: true, stars: fullGameStars(runs_16_nolblj) },
+                { id: "16_star_lblj", name: "16 Star (LBLJ)", order: 5, isFullgame: true, stars: fullGameStars(runs_16_lblj) },
+                { id: "70_star", name: "70 Star", order: 6, isFullgame: true, stars: fullGameStars(runs_70_star) },
+                { id: "120_star", name: "120 Star", order: 7, isFullgame: true, stars: fullGameStars(runs_120_star) },
+            ];
+            const allCategories = [...mainCourses, ...fullGameCategories];
+            
+            try {
+                console.log("Starting database seed...");
+                const batch = db.batch();
+                const coursesCollection = db.collection('courses');
+                for (const course of allCategories) {
+                    const courseRef = coursesCollection.doc(course.id);
+                    batch.set(courseRef, { name: course.name, order: course.order, isFullgame: !!course.isFullgame });
+                    for (const star of course.stars) {
+                        const starRef = courseRef.collection('stars').doc(star.id);
+                        batch.set(starRef, { name: star.name, order: star.order });
+                        if (star.runs) {
+                            for(const run of star.runs) {
+                                const runRef = starRef.collection('runs').doc();
+                                batch.set(runRef, run);
+                            }
+                        }
+                    }
+                }
+                await batch.commit();
+                console.log("DATABASE SEEDING COMPLETE!");
+                alert("Database seeded successfully!");
+                window.location.reload();
+            } catch (error) {
+                console.error("SEEDING FAILED:", error);
+                alert("Seeding failed. Check the console for details.");
+            }
+        }
+        
+        // ==============================================================================
+        // --- 6. INITIALIZATION & MODALS ---
+        // ==============================================================================
+        function populateCountrySelects() {
+            const countryOptions = '<option value="">-- Select Country --</option>' + Object.entries(countries).sort(([, a], [, b]) => a.localeCompare(b)).map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
+            document.getElementById('country-select').innerHTML = countryOptions;
+            document.getElementById('edit-country-select').innerHTML = countryOptions;
+        }
+
+        function openRulesModal() { openModal('rules-modal'); }
+
+        window.addEventListener('hashchange', router);
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.insertAdjacentHTML('beforeend', `
+                <div id="submission-modal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-btn" onclick="closeModal('submission-modal')">&times;</span>
+                        <h2>Submit New Run</h2>
+                        <form id="submission-form" onsubmit="handleRunSubmission(event)">
+                            <label for="course-select">Category:</label><select id="course-select" required></select>
+                            <label for="star-select">Star/Sub-Category:</label><select id="star-select" required disabled></select>
+                            <label for="runner">Runner:</label><input type="text" id="runner" required>
+                            <label for="country-select">Country:</label><select id="country-select" required></select>
+                            <label for="time">Time (e.g., 55.34 or 1:12:45):</label><input type="text" id="time" required>
+                            <label for="date">Date:</label><input type="date" id="date" required>
+                            <label for="videoLink">Video Link:</label><input type="url" id="videoLink" required>
+                            <button type="submit" id="submit-run-button">Submit Run</button>
+                        </form>
+                    </div>
+                </div>
+                <div id="edit-run-modal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-btn" onclick="closeModal('edit-run-modal')">&times;</span>
+                        <h2>Edit Run</h2>
+                        <form id="edit-run-form" onsubmit="handleRunUpdate(event)">
+                            <input type="hidden" id="edit-run-id"><input type="hidden" id="edit-course-id"><input type="hidden" id="edit-star-id">
+                            <label for="edit-runner">Runner:</label><input type="text" id="edit-runner" required>
+                            <label for="edit-country-select">Country:</label><select id="edit-country-select" required></select>
+                            <label for="edit-time">Time:</label><input type="text" id="edit-time" required>
+                            <label for="edit-date">Date:</label><input type="date" id="edit-date" required>
+                            <label for="edit-videoLink">Video Link:</label><input type="url" id="edit-videoLink" required>
+                            <button type="submit" id="update-run-button">Update Run</button>
+                        </form>
+                    </div>
+                </div>
+                 <div id="login-modal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-btn" onclick="closeModal('login-modal')">&times;</span>
+                        <h2>Moderator Login</h2>
+                        <form id="login-form" onsubmit="handleLogin(event)">
+                            <label for="email">Email:</label><input type="email" id="email" required>
+                            <label for="password">Password:</label><input type="password" id="password" required>
+                            <button type="submit">Log In</button>
+                            <p id="login-error" class="error-message"></p>
+                        </form>
+                    </div>
+                </div>
+                <div id="rules-modal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-btn" onclick="closeModal('rules-modal')">&times;</span>
+                        <h2>Rules & General Knowledge</h2>
+                        <h4>Rules:</h4>
+                        <ul>
+                            <li><b>#1:</b> Every run on this leaderboard MUST be done on the M64Plus FZ emulator (controller on mobile is NOT allowed).</li>
+                            <li><b>#2:</b> Mods are subject to change.</li>
+                            <li><b>#3:</b> No NSFW in the notes/linked submission of any given run (notes to runs should be DM'd to the mods and approved before display).</li>
+                            <li><b>#4:</b> Verification requires a runner, accurate timing (run will be retimed accordingly), and a linked YouTube video/Twitch VOD.</li>
+                            <li><b>#5:</b> No disrespect towards any of the mods will be tolerated, and can lead to a strike.</li>
+                            <li><b>#6:</b> You have 3 strikes before you get completely wiped off of this leaderboard and all times/submissions revoked.</li>
+                            <li><b>#7:</b> If you notice one of your times hasn't been updated/verified, don't be afraid to ping a mod and ask about it politely.</li>
+                            <li><b>#8:</b> No cheating (obviously).</li>
+                            <li><b>#9:</b> Rules are subject to change. (Last Update: Nov 25, 2024).</li>
+                            <li><b>#10:</b> A mod cannot verify their own run.</li>
+                            <li><b>#11:</b> Runs MUST be completed in full. No segments unless stated otherwise.</li>
+                            <li><b>#12:</b> Have fun! This is our wonderful chance to see every runner here all at once, and on a neat leaderboard.</li>
+                        </ul>
+                        <h4>General Knowledge:</h4>
+                        <ul>
+                            <li><b>#1:</b> There are 3 kinds of Verification responses. "Yes", "No", and "Pending...". Yes and No are self explanatory. Pending means that the run has a link, but it isn't verified yet.</li>
+                            <li><b>#2:</b> If you want any other specific leaderboard display username (such as uppercase/lowercase letters and/or alternate account names), DM a mod, and they can change that.</li>
+                            <li><b>#3:</b> There will likely be a new leaderboard for category extensions (CE), since we believe we should have a vanilla SM64 leaderboard stand on its' own.</li>
+                        </ul>
+                    </div>
+                </div>
+            `);
+            
+            populateCountrySelects();
+            auth.onAuthStateChanged(updateModeratorUI);
+            router();
+        });
+        
+        async function handleRunSubmission(event) {
+            event.preventDefault();
+            const form = document.getElementById('submission-form');
+            const button = form.querySelector('button');
+            button.disabled = true; button.textContent = 'Submitting...';
+            const courseId = form['course-select'].value;
+            const courseData = appState.coursesCache.find(c => c.id === courseId);
+            let starId = form['star-select'].value;
+            if (courseData.isFullgame) {
+                const stars = await loadStarsForCourse(courseId);
+                if (stars.length > 0) starId = stars[0].id;
+            }
+            const runData = {
+                runner: form.runner.value.trim(), runner_normalized: form.runner.value.toLowerCase().trim(),
+                time_str: form.time.value, time_numeric: parseTimeToNumeric(form.time.value),
+                date: form.date.value, videoLink: form.videoLink.value,
+                countryCode: form['country-select'].value, status: 'pending'
+            };
+            try {
+                await db.collection('courses').doc(courseId).collection('stars').doc(starId).collection('runs').add(runData);
+                alert("Run submitted for moderation!");
+                closeModal('submission-modal');
+                form.reset();
+            } catch (error) { alert("An error occurred during submission."); console.error(error); } 
+            finally { button.disabled = false; button.textContent = 'Submit Run'; }
+        }
+        async function handleRunUpdate(event) {
+            event.preventDefault();
+            if (!appState.isModerator) return;
+            const form = event.target, button = form.querySelector('button');
+            button.disabled = true; button.textContent = 'Updating...';
+            const runId = form['edit-run-id'].value, courseId = form['edit-course-id'].value, starId = form['edit-star-id'].value;
+            const updatedData = {
+                runner: form['edit-runner'].value.trim(), runner_normalized: form['edit-runner'].value.toLowerCase().trim(),
+                time_str: form['edit-time'].value, time_numeric: parseTimeToNumeric(form['edit-time'].value),
+                date: form['edit-date'].value, videoLink: form['edit-videoLink'].value,
+                countryCode: form['edit-country-select'].value
+            };
+            try {
+                await db.collection('courses').doc(courseId).collection('stars').doc(starId).collection('runs').doc(runId).update(updatedData);
+                alert("Run updated successfully!");
+                closeModal('edit-run-modal');
+                router();
+            } catch(error) { console.error(error); alert("Failed to update run."); }
+            finally { button.disabled = false; button.textContent = 'Update Run'; }
+        }
+        async function openSubmissionModal() {
+            const courses = await loadCourses();
+            const courseSelect = document.getElementById('course-select');
+            const starSelect = document.getElementById('star-select');
+            const starLabel = document.querySelector('label[for="star-select"]');
+            courseSelect.innerHTML = '<option value="">-- Select Category --</option>' + courses.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            starSelect.innerHTML = '<option value="">-- Select Category First --</option>';
+            starSelect.disabled = true;
+            courseSelect.onchange = async () => {
+                const courseId = courseSelect.value;
+                const course = courses.find(c => c.id === courseId);
+                if (course && course.isFullgame) {
+                    starSelect.style.display = 'none';
+                    starLabel.style.display = 'none';
+                    starSelect.disabled = true;
+                } else {
+                    starSelect.style.display = 'block';
+                    starLabel.style.display = 'block';
+                    if (!courseId) { starSelect.innerHTML = '<option value="">-- Select Category First --</option>'; starSelect.disabled = true; return; }
+                    const stars = await loadStarsForCourse(courseId);
+                    starSelect.innerHTML = '<option value="">-- Select a Star --</option>' + stars.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                    starSelect.disabled = false;
+                }
+            };
+            openModal('submission-modal');
+        }
+        async function openEditModal(courseId, starId, runId) {
+            if (!appState.isModerator) return;
+            const runDoc = await db.collection('courses').doc(courseId).collection('stars').doc(starId).collection('runs').doc(runId).get();
+            if (!runDoc.exists) { alert("Run not found!"); return; }
+            const runData = runDoc.data();
+            document.getElementById('edit-run-id').value = runId;
+            document.getElementById('edit-course-id').value = courseId;
+            document.getElementById('edit-star-id').value = starId;
+            document.getElementById('edit-runner').value = runData.runner;
+            document.getElementById('edit-time').value = runData.time_str;
+            document.getElementById('edit-date').value = runData.date;
+            document.getElementById('edit-videoLink').value = runData.videoLink;
+            document.getElementById('edit-country-select').value = runData.countryCode || "";
+            openModal('edit-run-modal');
+        }
+        function updateModeratorUI(user) {
+            appState.isModerator = !!user;
+            const modSection = document.getElementById('moderator-auth-section');
+            const modQueueLink = document.getElementById('mod-queue-link-container');
+            if (user) {
+                modSection.innerHTML = `<a class="action-button" onclick="logoutModerator()">Logout (${user.email})</a>`;
+                modQueueLink.innerHTML = `<a href="#modqueue">Mod Queue</a>`;
+            } else {
+                modSection.innerHTML = `<a class="action-button" onclick="openLoginModal()">Moderator Login</a>`;
+                modQueueLink.innerHTML = '';
+            }
+            if (location.hash.startsWith('#star') || location.hash.startsWith('#course') || location.hash === '#home') router();
+        }
+        async function handleLogin(event) { event.preventDefault(); const form = event.target, email = form.email.value, password = form.password.value; const err = document.getElementById('login-error'); err.style.display = 'none'; try { await auth.signInWithEmailAndPassword(email, password); closeModal('login-modal'); } catch (error) { err.textContent = "Login failed."; err.style.display = 'block'; } }
+        async function logoutModerator() { await auth.signOut(); }
+        function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
+        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+        function openLoginModal() { openModal('login-modal'); }
+        async function deleteRun(courseId, starId, runId) { if (!appState.isModerator || !confirm("Are you sure you want to permanently delete this run?")) return; try { await db.collection('courses').doc(courseId).collection('stars').doc(starId).collection('runs').doc(runId).delete(); alert("Run deleted."); router(); } catch (error) { console.error(error); alert("Error deleting run."); } }
+        async function showWorldRecordsPage() { renderLoader("Calculating World Records..."); /* Implementation needed */ }
+        async function showModQueuePage() { renderLoader("Loading Moderation Queue..."); /* Implementation needed */ }
+    </script>
+</body>
+</html>
