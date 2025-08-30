@@ -22,6 +22,7 @@
         th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); }
         .runner-cell { display: flex; align-items: center; gap: 10px; }
         .runner-cell span { font-size: 1.5rem; }
+        .wr-list { list-style-type: none; padding-left: 0; margin: 0; font-size: 0.9em; }
         .mod-actions { display: flex; gap: 5px; align-items: center; white-space: nowrap; }
         .mod-actions button { background: none; border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 1rem; line-height: 1; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
@@ -234,6 +235,73 @@
             }, error => { console.error("Error fetching leaderboard:", error); renderError("Failed to load leaderboard."); });
         }
         
+        async function showWorldRecordsPage() {
+            renderLoader("Calculating World Records...");
+            try {
+                await loadCourses();
+                
+                const allRunsSnapshot = await db.collectionGroup('runs').where('status', '==', 'verified').get();
+                if (allRunsSnapshot.empty) {
+                    appContainer.innerHTML = '<h2>World Records Tally</h2><p>No verified runs found to calculate records.</p>';
+                    return;
+                }
+
+                const starRecords = {};
+                allRunsSnapshot.forEach(doc => {
+                    const run = doc.data();
+                    const path = doc.ref.path.split('/');
+                    const courseId = path[1];
+                    
+                    if (!starRecords[courseId] || run.time_numeric < starRecords[courseId].time_numeric) {
+                        starRecords[courseId] = run;
+                    }
+                });
+
+                const runnerTally = {};
+                for (const courseId in starRecords) {
+                    const wrRun = starRecords[courseId];
+                    const runnerKey = wrRun.runner_normalized;
+                    const course = appState.coursesCache.find(c => c.id === courseId);
+                    if (!course) continue;
+
+                    if (!runnerTally[runnerKey]) {
+                        runnerTally[runnerKey] = {
+                            displayName: wrRun.runner,
+                            countryCode: wrRun.countryCode,
+                            count: 0,
+                            stars: []
+                        };
+                    }
+                    runnerTally[runnerKey].count++;
+                    runnerTally[runnerKey].stars.push(course.name);
+                }
+
+                const sortedRunners = Object.values(runnerTally).sort((a, b) => b.count - a.count);
+
+                appContainer.innerHTML = `
+                    <h2>World Records Tally</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>#</th><th>Runner</th><th>WRs</th><th>Categories</th></tr></thead>
+                            <tbody>
+                                ${sortedRunners.map((data, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td><div class="runner-cell"><span>${getFlagEmoji(data.countryCode)}</span> ${data.displayName}</div></td>
+                                        <td>${data.count}</td>
+                                        <td><ul class="wr-list">${data.stars.sort().map(s => `<li>${s}</li>`).join('')}</ul></td>
+                                    </tr>
+                                `).join('') || '<tr><td colspan="4">No world records found.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                console.error("Error calculating world records:", error);
+                renderError("Failed to calculate world records. A Firestore index might be required. Check the F12 console for a link to create it.");
+            }
+        }
+
         function parseTimeToNumeric(timeStr) {
             const time = String(timeStr).trim();
             const parts = time.split(':').map(part => parseFloat(part));
@@ -404,7 +472,6 @@
                         <h2>Submit New Run</h2>
                         <form id="submission-form" onsubmit="handleRunSubmission(event)">
                             <label for="course-select">Category:</label><select id="course-select" required></select>
-                            <label for="star-select">Star/Sub-Category:</label><select id="star-select" required disabled></select>
                             <label for="runner">Runner:</label><input type="text" id="runner" required>
                             <label for="country-select">Country:</label><select id="country-select"></select>
                             <label for="time">Time (e.g., 55.34 or 1:12:45):</label><input type="text" id="time" required>
@@ -481,12 +548,7 @@
             const button = form.querySelector('button');
             button.disabled = true; button.textContent = 'Submitting...';
             const courseId = form['course-select'].value;
-            const courseData = appState.coursesCache.find(c => c.id === courseId);
-            let starId = form['star-select'].value;
-            if (courseData.isFullgame) {
-                const stars = await loadStarsForCourse(courseId);
-                if (stars.length > 0) starId = stars[0].id;
-            }
+            const starId = 'leaderboard'; // Simplified for full-game only
             const runData = {
                 runner: form.runner.value.trim(), runner_normalized: form.runner.value.toLowerCase().trim(),
                 time_str: form.time.value, time_numeric: parseTimeToNumeric(form.time.value),
@@ -561,7 +623,6 @@
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
         function openLoginModal() { openModal('login-modal'); }
         async function deleteRun(courseId, starId, runId) { if (!appState.isModerator || !confirm("Are you sure you want to permanently delete this run?")) return; try { await db.collection('courses').doc(courseId).collection('stars').doc(starId).collection('runs').doc(runId).delete(); alert("Run deleted."); router(); } catch (error) { console.error(error); alert("Error deleting run."); } }
-        async function showWorldRecordsPage() { renderLoader("Calculating World Records..."); /* Implementation needed */ }
         async function showModQueuePage() { renderLoader("Loading Moderation Queue..."); /* Implementation needed */ }
     </script>
 </body>
