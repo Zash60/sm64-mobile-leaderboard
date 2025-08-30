@@ -238,11 +238,11 @@
             const time = String(timeStr).trim();
             const parts = time.split(':').map(part => parseFloat(part));
             let seconds = 0;
-            if (parts.length === 3) { // H:M:S
+            if (parts.length === 3) {
                 seconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
-            } else if (parts.length === 2) { // M:S
+            } else if (parts.length === 2) {
                 seconds = (parts[0] * 60) + parts[1];
-            } else { // S
+            } else {
                 seconds = parseFloat(time);
             }
             return isNaN(seconds) ? Infinity : seconds;
@@ -285,6 +285,42 @@
                 createRun("WRandY", "BR", "18:07", "2025-07-16", "https://b23.tv/LA02MwR"),
                 createRun("SpeedVortex", "US", "18:23", "2025-01-02", "https://youtu.be/iJXFBFKgrjE?si=36flkxZd9jt_Xi1d"),
                 createRun("yusosekc", "JP", "18:39", "2020-01-02", "https://www.twitch.tv/videos/529580971"),
+                createRun("Mack64", "US", "18:55", "2024-09-01", "https://youtu.be/NJopXYn_INQ?si=YSPGMUNSKGMHZAKZ"),
+                createRun("Mario104", "CN", "19:16", "2025-02-04", "https://b23.tv/2KdkHDI"),
+                createRun("three yuan", "CN", "19:45", "2024-10-11", "https://b23.tv/lg3wrCg"),
+                createRun("Jared64", "FR", "19:48", "2025-03-05", "https://youtu.be/41q-sMply_Y?feature=shared"),
+                createRun("Themariospeedgamer", "US", "19:50", "2020-06-16", "https://youtu.be/Sqs0HBOeqkY?si=5bqnU8jrDJNrzX0P"),
+                createRun("Bageler", "US", "20:34", "2025-08-19", "https://youtu.be/hgA-0flnjl?si=jZ79FoiF_jK0qxFR"),
+                createRun("Volt", "US", "20:55", "2020-07-06", "https://youtu.be/C-w6FHKdM-g?si=skkU1LwxztM66a2D"),
+                createRun("haze129", "KR", "20:58", "2017-10-10", "https://youtu.be/BqIRI1P_x8c?si=AOoqWeiNrshdCfFW"),
+                createRun("Majoog", "IN", "21:24", "2019-11-12", "https://youtu.be/ysZexUz2LOq?si=Lrs4OOCj4mB_Z50G"),
+                createRun("Ayushman Singh", "IN", "21:26", "2021-09-02", "https://youtu.be/lU6NHeRvneQ?si=-oH_Su0N1t1YmRIN"),
+                createRun("Littlezombie", "CN", "21:32", "2024-03-17", "https://youtu.be/BMBNuCBgiMI?si=pWUCSQ9WSV7SHDRJ"),
+                createRun("JacobJY", "CN", "21:32", "2024-10-02", "https://b23.tv/FtpV0VP"),
+                createRun("pito", "BR", "22:23", "2025-04-05", "https://www.youtube.com/watch?v=garagg84Ovc"),
+                createRun("Rian Studios", "US", "22:33", "2021-12-19", "https://youtu.be/v9oBpvQRX2w?si=IsEtwVDQhosKigrj"),
+                createRun("Sm64 Speedruns", "US", "22:43", "2019-09-04", "https://youtu.be/B47Rw64EZTI?si=u2Gcvb5uGtXzdLew"),
+                createRun("7887Gamer Boi64", "US", "23:21", "2022-07-31", "https://youtu.be/lqFD36s0fzA?si=nQFpFm1BGm_k7cuY"),
+                createRun("GCDobers", "US", "23:27", "2025-02-24", "https://youtu.be/4dq9GFYraHA?si=ev4nXZud8SA_g22j"),
+                createRun("Jugo de naranja", "CO", "23:54", "2024-08-19", "https://www.youtube.com/watch?v=_AT8ioy40Sg"),
+                createRun("Baxiba", "CN", "24:29", "2023-02-01", "https://b23.tv/HMCz9yF"),
+                createRun("ace2.4.6", "US", "24:45", "2023-08-22", "https://youtu.be/USKYtrAX5CU?si=_C3SSV1yK_f56mys"),
+                createRun("Kimlu3123", "KR", "25:06", "2018-05-08", "https://youtu.be/t2wkvdFagB0?si=SUDFOZEt499QZDON"),
+                createRun("KaMa2", "CL", "25:35", "2019-08-21", "https://youtu.be/VV8e5WKn5LI?si=qtBtlYHqBNLUXBCE"),
+                createRun("BonBin", "BR", "25:57", "2020-12-26", "https://youtu.be/N2HL9spzpEU?si=nKN2Z07bqCj2rnml"),
+                createRun("Ericky", "BR", "26:02", "2024-10-06", "https://youtu.be/Rg-jPe7umO4?si=Y7jRFYVHdOozZ5Kv"),
+                createRun("Femboycat", "US", "26:44", "2025-08-23", "https://youtu.be/fc2reOV58Gs?si=fbayPsHDoDxiRamU"),
+                createRun("zeldaglitchgamer", "US", "28:06", "2017-07-09", "https://youtu.be/mSXqn_hqW48?si=JC-4Er9s5w0h7Cuv"),
+                createRun("Igorski", "PL", "28:09", "2023-10-01", "https://youtu.be/tB7nnePTTxc?si=Zna_XF04Qv4CchX2"),
+                createRun("YatoYtUwu", "US", "28:48", "2022-08-20", "https://youtu.be/vCvFPloB6zU?si=spXnT0Ob9UB1N8ev"),
+                createRun("Cosmic64", "US", "28:56", "2024-09-02", "https://www.youtube.com/watch?v=4139bkEpzRA"),
+                createRun("ssssaasc", "CN", "29:40", "2023-01-09", "https://b23.tv/oS1Kn1z"),
+                createRun("Iván Pérez Gutiérrez", "ES", "30:25", "2020-07-09", "https://youtu.be/2eArW4KqBW8?si=CCRkMagfZuGKXSXm"),
+                createRun("Speedy =)", "US", "31:24", "2021-10-20", "https://www.youtube.com/live/aRj7A7oAeEw"),
+                createRun("pan con queso", "US", "35:18", "2020-08-14", "https://youtu.be/1EeeqGkWD20?si=V2qP1G30pdTlewud"),
+                createRun("HeZa Games", "US", "36:22", "2023-10-25", "https://youtu.be/bNkgVswqZOQ?si=cfiCPDuruE00T4Rv"),
+                createRun("Jonriel Besinio", "PH", "39:05", "2021-08-22", "https://youtu.be/Pg0k3jQj38g?si=dIWXWYKa7UYeSctG"),
+                createRun("MarioCrackYT", "DE", "43:21", "2022-12-29", "https://youtu.be/xoxEljNIMSw?si=TpDazjZHZ0qxdvcu"),
             ];
             const runs_16_lblj = [
                 createRun("Major", "US", "16:52", "2025-03-17", "https://youtu.be/q8sN_j7Az_M?si=g1-N1JiuFSFPvjVR"),
@@ -301,6 +337,9 @@
                 createRun("Golden King", "CN", "59:23", "2025-07-29", "https://b23.tv/lHCVfWW"),
                 createRun("Speedvortex", "US", "59:35", "2024-09-21", "https://youtu.be/E81CAVI28hk?si=g2FcHBLPjCw-Nh4_"),
                 createRun("Positive_Pan", "US", "59:59", "2025-01-10", "https://youtu.be/00BzFavjWjA?si=D2RE6ZN6N-7fJrKr"),
+                createRun("jared64", "FR", "1:04:25", "2025-02-24", "https://youtu.be/JYFqxvrDBfl?feature=shared"),
+                createRun("yusosekc", "JP", "1:05:33", "2020-01-04", "https://www.twitch.tv/videos/530596218"),
+                createRun("Jugo de naranja", "VE", "1:27:03", "2024-08-14", "N/A"),
             ];
             const runs_120_star = [
                 createRun("AmiDoesRuns", "CA", "1:56:17", "2025-06-01", "https://youtu.be/zVuYX8Sd3uY?si=tkjA7ZJA4Q284odp"),
@@ -308,16 +347,14 @@
             ];
 
             const fullGameStars = (runs) => ([{ id: "leaderboard", name: "Leaderboard", order: 1, runs }]);
-            const mainCourses = [ { id: "bob", name: "Bob-omb Battlefield", order: 1, stars: [ { id: "s1", name: "Big Bob-Omb on the Summit", order: 1 } ] }, ];
-            const fullGameCategories = [
-                { id: "0_star", name: "0 Star", order: 2, isFullgame: true, stars: fullGameStars(runs_0_star) },
-                { id: "1_star", name: "1 Star", order: 3, isFullgame: true, stars: fullGameStars(runs_1_star) },
-                { id: "16_star_nolblj", name: "16 Star (No LBLJ)", order: 4, isFullgame: true, stars: fullGameStars(runs_16_nolblj) },
-                { id: "16_star_lblj", name: "16 Star (LBLJ)", order: 5, isFullgame: true, stars: fullGameStars(runs_16_lblj) },
-                { id: "70_star", name: "70 Star", order: 6, isFullgame: true, stars: fullGameStars(runs_70_star) },
-                { id: "120_star", name: "120 Star", order: 7, isFullgame: true, stars: fullGameStars(runs_120_star) },
+            const allCategories = [
+                { id: "0_star", name: "0 Star", order: 1, isFullgame: true, stars: fullGameStars(runs_0_star) },
+                { id: "1_star", name: "1 Star", order: 2, isFullgame: true, stars: fullGameStars(runs_1_star) },
+                { id: "16_star_nolblj", name: "16 Star (No LBLJ)", order: 3, isFullgame: true, stars: fullGameStars(runs_16_nolblj) },
+                { id: "16_star_lblj", name: "16 Star (LBLJ)", order: 4, isFullgame: true, stars: fullGameStars(runs_16_lblj) },
+                { id: "70_star", name: "70 Star", order: 5, isFullgame: true, stars: fullGameStars(runs_70_star) },
+                { id: "120_star", name: "120 Star", order: 6, isFullgame: true, stars: fullGameStars(runs_120_star) },
             ];
-            const allCategories = [...mainCourses, ...fullGameCategories];
             
             try {
                 console.log("Starting database seed...");
